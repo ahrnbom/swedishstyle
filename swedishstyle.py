@@ -10,25 +10,50 @@ from pathlib import Path
 from typing import List, Dict 
 
 class CrossWord:
-    def __init__(self):
-        self.height = 0 
-        self.width = 0 
+    def __init__(self, height, width):
+        self.height = height
+        self.width = width 
         self.letters = dict()
 
+    # No positional checks performed here!
     def add_letter(self, x:int, y:int, letter:str):
         assert len(letter) == 1 
         
-        if x > self.width:
-            self.width = x
-
-        if y > self.height:
-            self.height = y 
-
         pos = (x, y)
-        if pos in self.letters:
-            raise ValueError(f"Space {pos} is already occupied")
-        
         self.letters[pos] = letter
+
+    # Returns True if successfull. 
+    # When False is returned, crossword is not modified
+    def try_add_word(self, word:str, x:int, y:int, horizontal:bool):
+        if horizontal:
+            dx = 1 
+            dy = 0
+        else:
+            dx = 0
+            dy = 1 
+        
+        to_add = list()
+
+        for letter in word:
+            pos = (x, y)
+
+            if x >= self.width or y >= self.height or x < 0 or y < 0:
+                return False 
+
+            if pos in self.letters:
+                # Check if another, incompatible, letter is there already
+                if self.letters[pos] != letter:
+                    return False 
+
+            to_add.append( (pos, letter) )
+            x += dx 
+            y += dy 
+
+        # Actually add the word
+        for pos, letter in to_add:
+            self.add_letter(pos[0], pos[1], letter)
+
+        return True 
 
     # Loops through all the letters, row first 
     def iterate(self):
@@ -39,6 +64,12 @@ class CrossWord:
                     yield pos, self.letters[pos]
                 else:
                     yield pos, None
+
+    def get_density(self):
+        n_letters = len(self.letters)
+        area = self.width*self.height
+
+        return n_letters/area 
 
 @dataclass
 class Riddle:
@@ -81,7 +112,7 @@ def load_riddles(name:str):
     return riddles
 
 def main():
-    c = CrossWord()
+    c = CrossWord(40,40)
     riddles = load_riddles('disp')
     wf = WordFinder(riddles)
 
