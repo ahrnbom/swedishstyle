@@ -6,14 +6,21 @@
 """
 
 from dataclasses import dataclass
-from pathlib import Path 
+from pathlib import Path
+from random import choice 
 from typing import List, Dict 
+
+@dataclass
+class Riddle:
+    word: str 
+    clue: str
 
 class CrossWord:
     def __init__(self, height, width):
         self.height = height
         self.width = width 
         self.letters = dict()
+        self.words = list() 
 
     # No positional checks performed here!
     def add_letter(self, x:int, y:int, letter:str):
@@ -24,7 +31,7 @@ class CrossWord:
 
     # Returns True if successfull. 
     # When False is returned, crossword is not modified
-    def try_add_word(self, word:str, x:int, y:int, horizontal:bool):
+    def try_add_riddle(self, riddle:Riddle, x:int, y:int, horizontal:bool):
         if horizontal:
             dx = 1 
             dy = 0
@@ -34,7 +41,7 @@ class CrossWord:
         
         to_add = list()
 
-        for letter in word:
+        for letter in riddle.word:
             pos = (x, y)
 
             if x >= self.width or y >= self.height or x < 0 or y < 0:
@@ -52,11 +59,12 @@ class CrossWord:
         # Actually add the word
         for pos, letter in to_add:
             self.add_letter(pos[0], pos[1], letter)
+        self.words.append( (riddle, pos, horizontal) )
 
         return True 
 
     # Loops through all the letters, row first 
-    def iterate(self):
+    def iterate_letters(self):
         for x in range(self.width):
             for y in range(self.height):
                 pos = (x, y)
@@ -71,29 +79,40 @@ class CrossWord:
 
         return n_letters/area 
 
-@dataclass
-class Riddle:
-    word: str 
-    clue: str
 
 # Data structure to make it easy to find words with letters in certain places
 class WordFinder:
     def __init__(self, riddles:List[Riddle]):
-        self.structure = dict()
+        self.by_pos = dict()
+        self.by_char = dict()
+        self.all = riddles
 
         for riddle in riddles:
             for i, char in enumerate(riddle.word):
+                # By position
                 key = (i, char)
-                if not key in self.structure:
-                    self.structure[key] = list()
-                self.structure[key].append(riddle)
+                if not key in self.by_pos:
+                    self.by_pos[key] = list()
+                self.by_pos[key].append(riddle)
 
-    def find(self, i, char):
+                # By letter
+                if not char in self.by_char:
+                    self.by_char[char] = list()
+                
+                self.by_char[char].append(riddle)
+
+    def find_by_pos(self, i, char):
         key = (i, char)
-        if key in self.structure:
-            return self.structure[key]
+        if key in self.by_pos:
+            return self.by_pos[key]
         else:
             return list() 
+
+    def find_by_char(self, char):
+        if char in self.by_char:
+            return self.by_char[char]
+        else:
+            return list()
 
 def load_riddles(name:str):
     file = Path(f"{name}.words")
@@ -111,8 +130,21 @@ def load_riddles(name:str):
     
     return riddles
 
+
+def brute_force(c:CrossWord, wf:WordFinder):
+    # Is the crossword empty? If so, place a random word in top left corner
+    if not c.words:
+        success = False 
+        while not success:
+            riddle = choice(wf.all)
+            success = c.try_add_riddle(riddle, 1, 0, True)
+
+    
+
+
 def main():
     c = CrossWord(40,40)
+
     riddles = load_riddles('disp')
     wf = WordFinder(riddles)
 
