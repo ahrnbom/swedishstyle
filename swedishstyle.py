@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from random import choice 
 from typing import List, Dict 
+import json 
 
 @dataclass
 class Riddle:
@@ -16,7 +17,8 @@ class Riddle:
     clue: str
 
 class CrossWord:
-    def __init__(self, height, width):
+    def __init__(self, name, height, width):
+        self.name = name 
         self.height = height
         self.width = width 
         self.letters = dict()
@@ -78,7 +80,28 @@ class CrossWord:
         area = self.width*self.height
 
         return n_letters/area 
+    
+    def save(self):
+        folder = Path(self.name)
+        folder.mkdir(exist_ok=True)
 
+        density = self.get_density()
+        previous = list(folder.glob('*.crossword'))
+        previous.sort()
+
+        if previous:
+            best_previous = float(previous[-1].stem)
+        else:
+            best_previous = 0.0
+        
+        if density > best_previous:
+            path = folder / f"{density:.5f}.crossword"
+            obj = dict()
+            obj['width'] = self.width
+            obj['height'] = self.height
+            obj['name'] = self.name 
+            obj['words'] = self.words
+            path.write_text(json.dumps(obj))
 
 # Data structure to make it easy to find words with letters in certain places
 class WordFinder:
@@ -139,15 +162,17 @@ def brute_force(c:CrossWord, wf:WordFinder):
             riddle = choice(wf.all)
             success = c.try_add_riddle(riddle, 1, 0, True)
 
-    
+    c.save()
 
 
-def main():
-    c = CrossWord(40,40)
+
+def main(name):
+    c = CrossWord(name, 40,40)
 
     riddles = load_riddles('disp')
     wf = WordFinder(riddles)
 
+    brute_force(c, wf)
 
 if __name__=="__main__":
-    main()
+    main("test")
