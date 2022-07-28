@@ -5,16 +5,30 @@
     See the file LICENSE for licensing terms
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, is_dataclass, asdict
 from pathlib import Path
 from random import choice 
 from typing import List, Dict 
 import json 
 
+# Allows dataclasses to be JSON encoded
+class DCEncoder(json.JSONEncoder):
+    def default(self, o):
+        if is_dataclass(o):
+            return asdict(o)
+        return super().default(o)
+
 @dataclass
 class Riddle:
     word: str 
     clue: str
+
+@dataclass
+class PlacedWord:
+    riddle: Riddle 
+    x: int 
+    y: int 
+    horizontal: bool
 
 class CrossWord:
     def __init__(self, name, height, width):
@@ -22,7 +36,7 @@ class CrossWord:
         self.height = height
         self.width = width 
         self.letters = dict()
-        self.words = list() 
+        self.placed_words = list() 
 
     # No positional checks performed here!
     def add_letter(self, x:int, y:int, letter:str):
@@ -61,7 +75,7 @@ class CrossWord:
         # Actually add the word
         for pos, letter in to_add:
             self.add_letter(pos[0], pos[1], letter)
-        self.words.append( (riddle, pos, horizontal) )
+        self.placed_words.append(PlacedWord(riddle, pos[0], pos[1], horizontal))
 
         return True 
 
@@ -100,8 +114,8 @@ class CrossWord:
             obj['width'] = self.width
             obj['height'] = self.height
             obj['name'] = self.name 
-            obj['words'] = self.words
-            path.write_text(json.dumps(obj))
+            obj['words'] = self.placed_words
+            path.write_text(json.dumps(obj, cls=DCEncoder, indent=2))
 
 # Data structure to make it easy to find words with letters in certain places
 class WordFinder:
@@ -156,7 +170,7 @@ def load_riddles(name:str):
 
 def brute_force(c:CrossWord, wf:WordFinder):
     # Is the crossword empty? If so, place a random word in top left corner
-    if not c.words:
+    if not c.placed_words:
         success = False 
         while not success:
             riddle = choice(wf.all)
@@ -169,7 +183,7 @@ def brute_force(c:CrossWord, wf:WordFinder):
 def main(name):
     c = CrossWord(name, 40,40)
 
-    riddles = load_riddles('disp')
+    riddles = load_riddles('test')
     wf = WordFinder(riddles)
 
     brute_force(c, wf)
