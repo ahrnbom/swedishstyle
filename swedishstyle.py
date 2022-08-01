@@ -117,6 +117,8 @@ class CrossWord:
             obj['words'] = self.placed_words
             with path.open('w', encoding='utf8') as file:
                 json.dump(obj, file, cls=DCEncoder, indent=2, ensure_ascii=False)
+            
+            print(f"new best density {density:.2f}")
 
 # Data structure to make it easy to find words with letters in certain places
 class WordFinder:
@@ -203,8 +205,9 @@ def brute_force(c:CrossWord, wf:WordFinder):
         letter_pos = randint(0, len(placed.riddle.word)-1)
         letter = placed.riddle.word[letter_pos]
 
-        if letter in wf.by_char and wf.by_char[letter]:
-            new_riddle = choice(wf.by_char[letter])
+        riddles = wf.find_by_char(letter)
+        if riddles:
+            new_riddle = choice(riddles)
             x = placed.x
             y = placed.y 
             if placed.horizontal:
@@ -212,9 +215,17 @@ def brute_force(c:CrossWord, wf:WordFinder):
             else:
                 y += letter_pos
 
-            res = c.try_add_riddle(new_riddle, x, y, not placed.horizontal)
+            new_letter_pos = choice([i for i,l in enumerate(new_riddle.word) \
+                                     if l==letter])
+
+            new_horizontal = not placed.horizontal
+            if new_horizontal:
+                x -= new_letter_pos
+            else:
+                y -= new_letter_pos
+                
+            res = c.try_add_riddle(new_riddle, x, y, new_horizontal)
             if res: 
-                print(f"Added word {new_riddle.word}")
                 fail_counter = 0 
                 wf.mark_as_used(new_riddle)
                 c.save()
@@ -231,7 +242,10 @@ def main(name):
     riddles = load_riddles('test')
     wf = WordFinder(riddles)
 
-    brute_force(c, wf.copy())
+    n = 128
+    for i in range(n):
+        print(f"Attempt {i+1}/{n}")
+        brute_force(c, wf.copy())
 
 if __name__=="__main__":
     main("test")
