@@ -81,13 +81,28 @@ class CrossWord:
 
     # Loops through all the letters, row first 
     def iterate_letters(self):
-        for x in range(self.width):
-            for y in range(self.height):
+        for y in range(self.height):
+            for x in range(self.width):
                 pos = (x, y)
                 if pos in self.letters:
                     yield pos, self.letters[pos]
                 else:
                     yield pos, None
+    
+    def __repr__(self):
+        lines = list()
+        for y in range(self.height): 
+            line = list()
+            for x in range(self.width):
+                pos = (x, y)
+                if pos in self.letters:
+                    line.append(self.letters[pos])
+                else:
+                    line.append(' ')
+                
+            lines.append(' '.join(line))
+        
+        return '\n'.join(lines)
 
     def get_density(self):
         n_letters = len(self.letters)
@@ -119,6 +134,7 @@ class CrossWord:
                 json.dump(obj, file, cls=DCEncoder, indent=2, ensure_ascii=False)
             
             print(f"new best density {density:.2f}")
+            print(self)
 
 # Data structure to make it easy to find words with letters in certain places
 class WordFinder:
@@ -193,6 +209,7 @@ def brute_force(c:CrossWord, wf:WordFinder):
         while not success:
             riddle = choice(wf.all)
             success = c.try_add_riddle(riddle, 1, 0, True)
+        wf.mark_as_used(riddle)
 
     c.save()
 
@@ -223,7 +240,7 @@ def brute_force(c:CrossWord, wf:WordFinder):
                 x -= new_letter_pos
             else:
                 y -= new_letter_pos
-                
+
             res = c.try_add_riddle(new_riddle, x, y, new_horizontal)
             if res: 
                 fail_counter = 0 
@@ -237,14 +254,15 @@ def brute_force(c:CrossWord, wf:WordFinder):
 
 
 def main(name):
-    c = CrossWord(name, 40,40)
-
     riddles = load_riddles('test')
     wf = WordFinder(riddles)
 
-    n = 128
+    n = 1024
     for i in range(n):
-        print(f"Attempt {i+1}/{n}")
+        if (i+1)%10 == 0:
+            print(f"Attempt {i+1}/{n}")
+
+        c = CrossWord(name, 20,20)
         brute_force(c, wf.copy())
 
 if __name__=="__main__":
