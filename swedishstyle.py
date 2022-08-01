@@ -7,8 +7,8 @@
 
 from dataclasses import dataclass, is_dataclass, asdict
 from pathlib import Path
-from random import choice 
-from typing import List, Dict 
+from random import choice, randint, random 
+from typing import List, Dict, Tuple 
 import json 
 
 # Allows dataclasses to be JSON encoded
@@ -36,7 +36,7 @@ class CrossWord:
         self.height = height
         self.width = width 
         self.letters = dict()
-        self.placed_words = list() 
+        self.placed_words: List[PlacedWord] = list() 
 
     # No positional checks performed here!
     def add_letter(self, x:int, y:int, letter:str):
@@ -115,14 +115,16 @@ class CrossWord:
             obj['height'] = self.height
             obj['name'] = self.name 
             obj['words'] = self.placed_words
-            path.write_text(json.dumps(obj, cls=DCEncoder, indent=2))
+            with path.open('w', encoding='utf8') as file:
+                json.dump(obj, file, cls=DCEncoder, indent=2, ensure_ascii=False)
 
 # Data structure to make it easy to find words with letters in certain places
 class WordFinder:
     def __init__(self, riddles:List[Riddle]):
-        self.by_pos = dict()
-        self.by_char = dict()
-        self.all = riddles
+        self.by_pos: Dict[Tuple[int, str], List[Riddle]] = dict()
+        self.by_char: Dict[str, List[Riddle]] = dict()
+        self.all: List[Riddle] = riddles
+        self.used: List[Riddle] = list()
 
         for riddle in riddles:
             for i, char in enumerate(riddle.word):
@@ -138,6 +140,10 @@ class WordFinder:
                 
                 self.by_char[char].append(riddle)
 
+    # Returns a deep copy
+    def copy(self):
+        return WordFinder(self.all)
+
     def find_by_pos(self, i, char):
         key = (i, char)
         if key in self.by_pos:
@@ -150,6 +156,16 @@ class WordFinder:
             return self.by_char[char]
         else:
             return list()
+        
+    def mark_as_used(self, riddle):
+        # Remove from all other data structures
+        for i, char in enumerate(riddle.word):
+            key = (i, char)
+            self.by_pos[key].remove(riddle)
+
+            self.by_char[char].remove(riddle)
+
+        self.used.append(riddle)
 
 def load_riddles(name:str):
     file = Path(f"{name}.words")
@@ -178,6 +194,35 @@ def brute_force(c:CrossWord, wf:WordFinder):
 
     c.save()
 
+    # Main algorithm: Find a placed word, select a letter, find another word
+    # with that letter, see if it fits. Rinse and repeat
+    keep_going = True 
+    fail_counter = 0 
+    while keep_going:
+        placed = choice(c.placed_words)
+        letter_pos = randint(0, len(placed.riddle.word)-1)
+        letter = placed.riddle.word[letter_pos]
+
+        if letter in wf.by_char and wf.by_char[letter]:
+            new_riddle = choice(wf.by_char[letter])
+            x = placed.x
+            y = placed.y 
+            if placed.horizontal:
+                x += letter_pos
+            else:
+                y += letter_pos
+
+            res = c.try_add_riddle(new_riddle, x, y, not placed.horizontal)
+            if res: 
+                print(f"Added word {new_riddle.word}")
+                fail_counter = 0 
+                wf.mark_as_used(new_riddle)
+                c.save()
+            
+        fail_counter += 1 
+        if fail_counter > len(wf.all)*128:
+            keep_going = False 
+
 
 
 def main(name):
@@ -186,7 +231,7 @@ def main(name):
     riddles = load_riddles('test')
     wf = WordFinder(riddles)
 
-    brute_force(c, wf)
+    brute_force(c, wf.copy())
 
 if __name__=="__main__":
     main("test")
