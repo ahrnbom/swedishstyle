@@ -57,6 +57,8 @@ class CrossWord:
         
         to_add = list()
 
+        start_pos = (x, y)
+
         for letter in riddle.word:
             pos = (x, y)
 
@@ -75,6 +77,8 @@ class CrossWord:
         # Actually add the word
         for pos, letter in to_add:
             self.add_letter(pos[0], pos[1], letter)
+        
+        pos = start_pos
         self.placed_words.append(PlacedWord(riddle, pos[0], pos[1], horizontal))
 
         return True 
@@ -197,6 +201,8 @@ def load_riddles(name:str):
         else:
             riddle = Riddle(line, None)
         
+        riddle.word += ' ' # by ending in space, we don't allow words to mix
+
         riddles.append(riddle)
     
     return riddles
@@ -208,7 +214,7 @@ def brute_force(c:CrossWord, wf:WordFinder):
         success = False 
         while not success:
             riddle = choice(wf.all)
-            success = c.try_add_riddle(riddle, 1, 0, True)
+            success = c.try_add_riddle(riddle, 0, 0, True)
         wf.mark_as_used(riddle)
 
     c.save()
